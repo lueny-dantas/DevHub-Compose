@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Card
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,45 +21,67 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import paixao.lueny.devhub.R
-import paixao.lueny.devhub.ui.webclient.model.GitHubRepository
-import paixao.lueny.devhub.ui.webclient.model.GitHubWebClient
+import paixao.lueny.devhub.data.models.GitHubRepositoryResponse
+import paixao.lueny.devhub.domain.model.User
+import paixao.lueny.devhub.ui.theme.Purple500
+import paixao.lueny.devhub.ui.theme.Purple700
+import paixao.lueny.devhub.ui.theme.primaryColor
 
 @Composable
 fun ProfileScreen(
-    user: String,
-    webClient: GitHubWebClient = GitHubWebClient()
+    userAccessName: String,
 ) {
-    val uiState = webClient.uiState
-    LaunchedEffect(null) {
-        webClient.findProfileBy(user)
-    }
-    Profile(uiState)
+    val uiModel = remember { HomeScreenUiModel() }
+    val newUiState by uiModel.uiState.collectAsState()
 
+    LaunchedEffect(null) {
+        uiModel.retrieveUserProfile(userAccessName)
+    }
+    Profile(newUiState)
 }
 
 @Composable
-fun Profile(uiState: ProfileUiState) {
-    LazyColumn {
-        item {
-            ProfileHeader(uiState)
-        }
-        item {
-            if (uiState.repositories.isNotEmpty()) {
-                Text(
-                    text = "Repositórios", Modifier.padding(8.dp),
-                    fontSize = 24.sp
+fun Profile(uiState: HomeScreenState) {
+    when {
+        uiState.isLoading -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(40.dp),
+                    color = Purple700,
+                    strokeWidth = 5.dp
                 )
             }
         }
-        items(uiState.repositories) { repo ->
-            RepositoryItem(repo = repo)
+        uiState.error != null -> {
+            //TODO()
+        }
+        else -> LazyColumn {
+            item {
+                ProfileHeader(uiState.user)
+            }
+            item {
+                if (uiState.user.repositories.isNotEmpty()) {
+                    Text(
+                        text = "Repositórios", Modifier.padding(8.dp),
+                        fontSize = 24.sp
+                    )
+                }
+            }
+            items(uiState.user.repositories) { repo ->
+                RepositoryItem(repo = repo)
+            }
         }
     }
 }
 
 @Composable
-private fun ProfileHeader(state: ProfileUiState) {
+private fun ProfileHeader(state: User) {
     Column {
         val boxHeight = remember { 150.dp }
         val imageHeight = remember { boxHeight }
@@ -67,7 +90,7 @@ private fun ProfileHeader(state: ProfileUiState) {
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Color(0xFF2d333b), shape = RoundedCornerShape(
+                    Purple700, shape = RoundedCornerShape(
                         bottomStart = 16.dp,
                         bottomEnd = 16.dp
                     )
@@ -97,7 +120,7 @@ private fun ProfileHeader(state: ProfileUiState) {
                 fontSize = 32.sp
             )
             Text(
-                state.user,
+                state.userAccessName,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -117,7 +140,7 @@ private fun ProfileHeader(state: ProfileUiState) {
 }
 
 @Composable
-fun RepositoryItem(repo: GitHubRepository) {
+fun RepositoryItem(repo: GitHubRepositoryResponse) {
     Card(
         modifier = Modifier.padding(8.dp),
         elevation = 4.dp
@@ -127,7 +150,7 @@ fun RepositoryItem(repo: GitHubRepository) {
                 repo.name,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF2d333b))
+                    .background(Purple700)
                     .padding(8.dp),
                 fontSize = 24.sp,
                 color = Color.White
@@ -148,7 +171,7 @@ fun RepositoryItem(repo: GitHubRepository) {
 @Composable
 fun RepositoryItemPreview() {
     RepositoryItem(
-        repo = GitHubRepository(
+        repo = GitHubRepositoryResponse(
             name = "lueny-dantas",
             description = "Android Developer Jr"
         )
@@ -159,32 +182,26 @@ fun RepositoryItemPreview() {
 @Composable
 fun ProfileWithRepositoriesPreview() {
     Profile(
-        uiState = ProfileUiState(
-            user = "lueny-dantas",
-            image = "https://avatars.githubusercontent.com/u/8989346?v=4",
-            name = "Lueny Dantas",
-            bio = "Android Developer",
-            repositories = listOf(
-                GitHubRepository(name = "github-compose"),
-                GitHubRepository(
-                    name = "ceep-compose",
-                    description = "Sample project to practice the Jetpack Compose Apps"
-                ),
-                GitHubRepository(
-                    name = "orgs-jetpack-compose",
-                    description = "Projeto de simulação do e-commerce de produtos naturais com a finalidade de treinar o Jetpack Compose"
+        uiState = HomeScreenState(
+            user = User(
+                userAccessName = "lueny-dantas",
+                image = "https://avatars.githubusercontent.com/u/8989346?v=4",
+                name = "Lueny Dantas",
+                bio = "Android Developer",
+                repositories = listOf(
+                    GitHubRepositoryResponse(name = "github-compose"),
+                    GitHubRepositoryResponse(
+                        name = "ceep-compose",
+                        description = "Sample project to practice the Jetpack Compose Apps"
+                    ),
+                    GitHubRepositoryResponse(
+                        name = "orgs-jetpack-compose",
+                        description = "Projeto de simulação do e-commerce de produtos naturais com a finalidade de treinar o Jetpack Compose"
+                    )
                 )
             )
         )
     )
 }
-
-data class ProfileUiState(
-    val user: String = "",
-    val image: String = "",
-    val name: String = "",
-    val bio: String = "",
-    val repositories: List<GitHubRepository> = emptyList()
-)
 
 
